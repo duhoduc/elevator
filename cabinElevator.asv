@@ -69,7 +69,9 @@ classdef cabinElevator
 
                     switch(app.doorState)
                         case 'canOpen'
-           vcb c
+                            % We turn off the open door button
+                            app.OpenDoor.BackgroundColor = 'g';
+                            app.OpenDoor.Enable = 'off';
                             if strcmp(app.CloseDoor.Enable,'off')
                                 % Turn on close door button
                                 app.CloseDoor.BackgroundColor = [0.96 0.96 0.96];

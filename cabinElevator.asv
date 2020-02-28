@@ -62,6 +62,7 @@ classdef cabinElevator
             
             % Update the current position of the cabin and door
             obj = obj.changeProperty('currentCabinPosition',currentCabinPosition);
+            obj = obj.changeProperty('currentCabinFloor');
             obj = obj.changeProperty('currentDoorPosition',currentDoorPosition);
             
             % Update the current cabin floor
@@ -75,8 +76,10 @@ classdef cabinElevator
                     obj.totalDoorOpenTime = 0;
                     % Update next cabin position based on the queue
                     obj = obj.changeProperty('nextCabinPosition');
-                    
-                    if ~obj.cabinIsMoving && obj.doorOpenRequest
+                    if obj.fireAlarm
+                        obj.cabinState = 'fire';
+                        
+                    elseif ~obj.cabinIsMoving && obj.doorOpenRequest
                         obj.cabinState = 'door';
                         obj.doorIsOpening = true;
                         obj.cabinIsMoving = false;
@@ -99,7 +102,7 @@ classdef cabinElevator
                     if obj.nextCabinPosition > obj.currentCabinPosition
                         obj.cabinSpeed = 1;
                         obj.cabinState = 'up';
-                    elseif obj.nextCabinPosition == obj.currentCabinPosition
+                    else
                         obj.cabinSpeed = 0; % Stop moving the cabin
                         obj.cabinIsMoving = false;
                         obj.doorOpenRequest = true;
@@ -109,7 +112,7 @@ classdef cabinElevator
                     if obj.nextCabinPosition < obj.currentCabinPosition
                         obj.cabinSpeed = -1;
                         obj.cabinState = 'down';
-                    elseif obj.nextCabinPosition == obj.currentCabinPosition
+                    else
                         obj.cabinSpeed = 0;
                         obj.cabinIsMoving = false;
                         obj.cabinState = 'idle'; % Put the cabin state to idle
@@ -175,8 +178,39 @@ classdef cabinElevator
                     % Add the force command to the cabin,
                     % if cabin is not moving, open door
                     % otherwise move to the next floor and open door.
+                    % Check the current position
+                    isInFloor = (obj.currentCabinPosition == obj.allFloorPosition);
+                    if ~isempty(isInFloor) && ~obj.cabinIsMoving
+                        % Just open door
+                        if obj.currentDoorPosition > obj.doorMinPosition
+                            obj.doorSpeed = -1;
+                        else
+                            obj.doorSpeed = 0;
+                            obj.doorOpenRequest = false;
+                        end
+                        obj.doorIsOpening = true;
+                    else % Move to the closest floor in the same direction
+                        switch(obj.cabinIsUp)
+                            case  true
+                                if obj.currentCabinPosition ~= obj.allFloorPosition(obj.currentCabinFloor+1)
+                                    obj.cabinSpeed = 1;
+                                else
+                                    obj.cabinSpeed = 0;
+                                    obj.cabinIsMoving = false;
+                                end
+                            case false
+                                if obj.currentCabinPosition ~= obj.allFloorPosition(obj.currentCabinFloor)
+                                    obj.cabinSpeed = -1;
+                                else
+                                    obj.cabinSpeed = 0;
+                                    obj.cabinIsMoving = false;
+                                end
+                        end
+                    end
+                    if ~obj.fireAlarm && (obj.currentDoorPosition == obj.doorMinPosition)
+                        obj.doorSpeed = 1; % Try to open to the normal
+                        
             end
-            
         end
         
         function obj = changeProperty(obj,varargin)
@@ -204,8 +238,8 @@ classdef cabinElevator
                         end
                         
                     case 'currentCabinFloor'
-                        ind_floor = find((obj.allFloorPosition>=obj.currentCabinPosition)==0);
-                        obj.currentCabinFloor = ind_floor(end);
+                        ind_floor = find((obj.allFloorPosition>=obj.currentCabinPosition)==1);
+                        obj.currentCabinFloor = ind_floor(1);
                         
                     case 'currentDoorPosition'
                         if isnumeric(varargin{2})
@@ -242,30 +276,33 @@ classdef cabinElevator
                                     obj.nextCabinPosition = obj.allFloorPosition(obj.nextCabinFloor);
                                 end
                             end
-                        end
-                        
-                            
+                        end  
                     case 'nextCabinFloor'
-                        
+                        obj.nextCabinFloor = find( obj.allFloorPosition == obj.nextCabinPosition);
                     case 'doorMaxPosition'
                         if isnumeric(varargin{2})
-                            
+                            obj.doorMaxPosition = varargin{2};
+                        end
                     case 'doorMinPosition'
-                        
+                        if isnumeric(varargin{2})
+                            obj.doorMinPosition = varargin{2};
+                        end
                     case 'keepDoorOpenInTime'
                         obj.keepDoorOpenInTime = varargin{2};
                     case 'keepDoorOpenInTime_max'
-                        
+                        obj.keepDoorOpenInTime_max = varargin{2};
                     case 'allFloorPosition'
+                        obj.allFloorPosition = varargin{2};
                     case 'allFloor'
-                        
+                        obj.allFloor = varargin{2};
                     case 'fireAlarm'
                         if islogical(varargin{2})
                             obj.fireAlarm = varargin{2};
                         end
                     case 'cabinMaxPosition'
+                        obj.cabinMaxPosition = varargin{2};
                     case 'cabinMinPosition'
-                        
+                        obj.cabinMinPosition = varargin{2};
                     case 'queue'
                         floorRequest = varargin{2}(:,1);
                         directionRequest = varargin{2}(:,2);

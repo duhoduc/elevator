@@ -76,8 +76,10 @@ classdef cabinElevator
                     obj.totalDoorOpenTime = 0;
                     % Update next cabin position based on the queue
                     obj = obj.changeProperty('nextCabinPosition');
-                    
-                    if ~obj.cabinIsMoving && obj.doorOpenRequest
+                    if obj.fireAlarm
+                        obj.cabinState = 'fire';
+                        
+                    elseif ~obj.cabinIsMoving && obj.doorOpenRequest
                         obj.cabinState = 'door';
                         obj.doorIsOpening = true;
                         obj.cabinIsMoving = false;
@@ -176,8 +178,43 @@ classdef cabinElevator
                     % Add the force command to the cabin,
                     % if cabin is not moving, open door
                     % otherwise move to the next floor and open door.
+                    % Check the current position
+                    isInFloor = (obj.currentCabinPosition == obj.allFloorPosition);
+                    if ~isempty(isInFloor) && ~obj.cabinIsMoving
+                        % Just open door
+                        if obj.currentDoorPosition > obj.doorMinPosition
+                            obj.doorSpeed = -1;
+                        else
+                            obj.doorSpeed = 0;
+                            obj.doorOpenRequest = false;
+                        end
+                        obj.doorIsOpening = true;
+                    else % Move to the closest floor in the same direction
+                        switch(obj.cabinIsUp)
+                            case  true
+                                if obj.currentCabinPosition ~= obj.allFloorPosition(obj.currentCabinFloor+1)
+                                    obj.cabinSpeed = 1;
+                                else
+                                    obj.cabinSpeed = 0;
+                                    obj.cabinIsMoving = false;
+                                end
+                            case false
+                                if obj.currentCabinPosition ~= obj.allFloorPosition(obj.currentCabinFloor)
+                                    obj.cabinSpeed = -1;
+                                else
+                                    obj.cabinSpeed = 0;
+                                    obj.cabinIsMoving = false;
+                                end
+                        end
+                    end
+                    if ~obj.fireAlarm && (obj.currentDoorPosition < obj.doorMaxPosition)
+                        obj.doorSpeed = 1; % Try to close to the door
+                    elseif ~obj.fireAlarm && (obj.currentDoorPosition == obj.doorMaxPosition)
+                        obj.doorSpeed = 0;
+                        obj.cabinState = 'idle';
+                        obj.doorIsOpening = false;
+                    end
             end
-            
         end
         
         function obj = changeProperty(obj,varargin)
